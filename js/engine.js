@@ -149,6 +149,108 @@ const KillMathEngine = (function () {
     }
 
     // ----------------------------------------------------
+    // 2. BEAM WEAPONS (Continuous Laser / Thermal Beam)
+    // ----------------------------------------------------
+    if (weaponData.kind === "beam") {
+      const baseDps = weaponData.dps;
+      const durDps = weaponData.dur_dps || (baseDps * 0.4);
+      const blendedDps = Math.floor(baseDps * (1 - durFrac) + durDps * durFrac);
+      const apPartCheck = checkAP(weaponData.ap, partAv);
+      primaryApType = apPartCheck.type;
+
+      // Direct beam DPS on part
+      const beamDps = +(blendedDps * apPartCheck.factor).toFixed(1);
+
+      // Optional burn DoT on Main
+      let burnDps = 0;
+      let burnMath = "";
+      if (weaponData.burn && weaponData.burn > 0) {
+        const apMainCheck = checkAP(4, mainAv);
+        burnDps = +(100 * sizeMult * apMainCheck.factor).toFixed(1);
+        burnMath = `; + burn DoT ${burnDps}/s on Main`;
+      }
+
+      const mathDesc = `beam ${baseDps}/s (dur ${durDps}/s, blend ${blendedDps}/s) x AP ${apPartCheck.label} = ${beamDps}/s on part${burnMath}`;
+
+      let toBreak = "";
+      let toKill = "—";
+      let timeSec = "";
+      let route = "No damage";
+
+      if (beamDps > 0 && partHp !== null && typeof partHp === "number") {
+        toBreak = +(partHp / beamDps).toFixed(1);
+      }
+
+      if (isFatal) {
+        if (beamDps > 0 && partHp !== null && typeof partHp === "number") {
+          const t = +(partHp / beamDps).toFixed(1);
+          toKill = t;
+          timeSec = t;
+          route = "Burn through fatal part";
+        } else if (burnDps > 0 || (beamDps > 0 && partHp === null)) {
+          const effDps = beamDps * toMainFrac + burnDps;
+          if (effDps > 0) {
+            const t = +(mainPool / effDps).toFixed(1);
+            toKill = t;
+            timeSec = t;
+            route = "Drain Main (beam + burn DoT)";
+          }
+        }
+      } else {
+        // Non-fatal part
+        if (beamDps > 0 && partHp !== null && typeof partHp === "number") {
+          const tBreak = partHp / beamDps;
+          const mainDrainedDuringBreak = (partHp * toMainFrac) + (burnDps * tBreak);
+          if (mainDrainedDuringBreak >= mainPool) {
+            const effDps = (beamDps * toMainFrac) + burnDps;
+            const t = +(mainPool / effDps).toFixed(1);
+            toKill = t;
+            timeSec = t;
+            route = "Drain Main through part";
+          } else if (burnDps > 0) {
+            const remainingMain = mainPool - mainDrainedDuringBreak;
+            const tRemain = remainingMain / burnDps;
+            const tTotal = +(tBreak + tRemain).toFixed(1);
+            toKill = tTotal;
+            timeSec = tTotal;
+            route = "Break part, then burn finishes Main";
+          } else {
+            toKill = "—";
+            route = "Breaks part only (armor strip)";
+          }
+        } else if (partHp === null && (beamDps > 0 || burnDps > 0)) {
+          const effDps = beamDps * toMainFrac + burnDps;
+          if (effDps > 0) {
+            const t = +(mainPool / effDps).toFixed(1);
+            toKill = t;
+            timeSec = t;
+            route = "Drain Main (beam)";
+          }
+        }
+      }
+
+      return {
+        enemy: enemyName,
+        weapon: weaponName,
+        part: partName,
+        hp: partHp,
+        av: partAv,
+        dur: durPct,
+        tomain: toMainPct,
+        exdr: exdrPct,
+        fatal: isFatal ? "Yes" : "No",
+        apc: primaryApType,
+        dmg: beamDps,
+        brk: toBreak,
+        kill: toKill,
+        time: timeSec,
+        route: route,
+        math: mathDesc,
+        note: weaponData.note || ""
+      };
+    }
+
+    // ----------------------------------------------------
     // 2. HIT / PROJECTILE / EXPLOSIVE WEAPONS
     // ----------------------------------------------------
     let mainPreBurn = 0;
@@ -307,11 +409,11 @@ const KillMathEngine = (function () {
           }
         }
         if (bestRow) {
-          const isFlame = weaponData.kind === "flame";
+          const isContinuous = weaponData.kind === "flame" || weaponData.kind === "beam";
           best[`${enemyName}|${weaponName}`] = {
             k: bestRow.kill,
             p: bestRow.part,
-            u: isFlame ? "s" : "hits",
+            u: isContinuous ? "s" : "hits",
             route: bestRow.route
           };
         }

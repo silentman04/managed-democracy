@@ -69,16 +69,41 @@
 
   tabs.forEach(b => b.addEventListener("click", () => switchTab(b.dataset.tab)));
 
+  const CATEGORIES = [
+    "Primary",
+    "Secondary",
+    "Grenade",
+    "Support",
+    "Eagle Stratagem",
+    "Orbital Strike",
+    "Sentry & Emplacement"
+  ];
+
+  const CATEGORY_LABELS = {
+    "Primary": "Primary Weapons",
+    "Secondary": "Secondary Weapons (Sidearms)",
+    "Grenade": "Grenades",
+    "Support": "Support Weapons",
+    "Eagle Stratagem": "Eagle Stratagems",
+    "Orbital Strike": "Orbital Strikes",
+    "Sentry & Emplacement": "Sentries & Emplacements"
+  };
+
   // Setup Kill Matrix
   function renderMatrix(faction) {
     const enemies = Object.keys(ENEMIES_DATA).filter(e => ENEMIES_DATA[e].faction === faction);
     const weapons = Object.keys(WEAPONS_DATA);
     const bestRoutes = KillMathEngine.computeBestRoutes(ENEMIES_DATA, WEAPONS_DATA);
 
-    let html = `<thead><tr><th class="wname">Weapon</th>${enemies.map(e => `<th>${esc(e)}</th>`).join("")}</tr></thead><tbody>`;
+    let html = `<thead><tr><th class="wname">Weapon / Stratagem</th>${enemies.map(e => `<th>${esc(e)}</th>`).join("")}</tr></thead><tbody>`;
 
+    let currentSlot = null;
     for (const w of weapons) {
       const wData = WEAPONS_DATA[w];
+      if (wData.slot !== currentSlot) {
+        currentSlot = wData.slot;
+        html += `<tr><th colspan="${enemies.length + 1}" style="text-align:left; background:var(--sunk); font-weight:700; padding:7px 10px; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:var(--accent-ink); position:sticky; left:0; z-index:2;">${esc(CATEGORY_LABELS[currentSlot] || currentSlot)}</th></tr>`;
+      }
       html += `<tr><td class="wname"><b>${esc(w)}</b><br><span class="note">${esc(wData.slot)}</span></td>`;
       for (const e of enemies) {
         const b = bestRoutes[`${e}|${w}`];
@@ -132,15 +157,26 @@
     const enemies = [...new Set(rows.map(r => r.enemy))];
     const weapons = [...new Set(rows.map(r => r.weapon))];
 
+    // Group weapons by slot
+    let weaponOptionsHtml = `<option value="">All weapons & stratagems</option>`;
+    for (const cat of CATEGORIES) {
+      const catWeapons = weapons.filter(w => WEAPONS_DATA[w]?.slot === cat);
+      if (catWeapons.length > 0) {
+        weaponOptionsHtml += `<optgroup label="${CATEGORY_LABELS[cat] || cat}">` +
+          catWeapons.map(w => `<option value="${esc(w)}">${esc(w)}</option>`).join("") +
+          `</optgroup>`;
+      }
+    }
+
     el.innerHTML = `
       <h2>${fac} Breakdown</h2>
-      <p class="lede">Every weapon against every body part. Guns and launchers are counted in hits, flame weapons in seconds of spray. Click any column header to sort.</p>
+      <p class="lede">Every weapon against every body part. Guns and launchers are counted in hits, flame & continuous beam weapons in seconds of fire. Click any column header to sort.</p>
       <div class="controls">
         <label for="${fac}-e">Enemy
           <select id="${fac}-e"><option value="">All enemies</option>${enemies.map(e => `<option>${esc(e)}</option>`).join("")}</select>
         </label>
-        <label for="${fac}-w">Weapon
-          <select id="${fac}-w"><option value="">All weapons</option>${weapons.map(w => `<option>${esc(w)}</option>`).join("")}</select>
+        <label for="${fac}-w">Weapon / Stratagem
+          <select id="${fac}-w">${weaponOptionsHtml}</select>
         </label>
         <label for="${fac}-q">Part Search
           <input type="search" id="${fac}-q" placeholder="e.g. head, eye, vent, belly">
@@ -199,7 +235,7 @@
 
       const shown = rs.slice(0, 600);
       document.getElementById(`${fac}-b`).innerHTML = shown.map(r => {
-        const isF = WEAPONS_DATA[r.weapon]?.kind === "flame";
+        const isF = WEAPONS_DATA[r.weapon]?.kind === "flame" || WEAPONS_DATA[r.weapon]?.kind === "beam";
         return "<tr>" + COLS.map(([k, l, c]) => {
           if (k === "apc") return `<td>${CHIP_HTML[r.apc] || r.apc}</td>`;
           let v = r[k];
@@ -272,41 +308,72 @@
     renderTable();
   }
 
-  // Render Weapons Inputs Table
+  // Render Weapons Inputs Table with live filtering
   function renderWeaponsTable() {
     const table = document.getElementById("wtable");
+    const catFilter = document.getElementById("w-cat-filter");
+    const searchFilter = document.getElementById("w-search-filter");
+    const countElem = document.getElementById("w-count");
     if (!table) return;
 
-    let h = `<thead><tr><th>Weapon</th><th>Slot</th><th>Component</th><th>Raw dmg</th><th>Durable dmg</th><th>AP</th><th>Type</th><th>Notes</th></tr></thead><tbody>`;
+    function update() {
+      const selectedCat = catFilter ? catFilter.value : "";
+      const searchQ = searchFilter ? searchFilter.value.trim().toLowerCase() : "";
 
-    for (const [name, w] of Object.entries(WEAPONS_DATA)) {
-      if (w.kind === "hit") {
-        w.comps.forEach((c, idx) => {
+      let h = `<thead><tr><th>Weapon / Stratagem</th><th>Category</th><th>Component</th><th>Raw dmg</th><th>Durable dmg</th><th>AP</th><th>Type</th><th>Notes</th></tr></thead><tbody>`;
+
+      let totalCount = 0;
+      for (const [name, w] of Object.entries(WEAPONS_DATA)) {
+        if (selectedCat && w.slot !== selectedCat) continue;
+        if (searchQ && !name.toLowerCase().includes(searchQ) && !(w.slot || "").toLowerCase().includes(searchQ) && !(w.note || "").toLowerCase().includes(searchQ)) continue;
+        totalCount++;
+
+        if (w.kind === "hit") {
+          w.comps.forEach((c, idx) => {
+            h += `<tr>
+              <td>${idx ? "" : `<b>${esc(name)}</b>`}</td>
+              <td>${idx ? "" : esc(w.slot)}</td>
+              <td>${esc(c[0])}</td>
+              <td class="num">${c[1]}</td>
+              <td class="num">${c[2]}</td>
+              <td class="num">AP${c[3]}</td>
+              <td>${c[4] ? "explosion" : "projectile"}</td>
+              <td class="note">${idx ? "" : esc((w.rate ? `${w.rate} rpm. ` : "") + (w.note || ""))}</td>
+            </tr>`;
+          });
+        } else if (w.kind === "beam") {
           h += `<tr>
-            <td>${idx ? "" : `<b>${esc(name)}</b>`}</td>
-            <td>${idx ? "" : esc(w.slot)}</td>
-            <td>${esc(c[0])}</td>
-            <td class="num">${c[1]}</td>
-            <td class="num">${c[2]}</td>
-            <td class="num">AP${c[3]}</td>
-            <td>${c[4] ? "explosion" : "projectile"}</td>
-            <td class="note">${idx ? "" : esc((w.rate ? `${w.rate} rpm. ` : "") + (w.note || ""))}</td>
+            <td><b>${esc(name)}</b></td>
+            <td>${esc(w.slot)}</td>
+            <td>continuous thermal beam</td>
+            <td class="num">${w.dps}/s</td>
+            <td class="num">${w.dur_dps || Math.round(w.dps * 0.4)}/s</td>
+            <td class="num">AP${w.ap}</td>
+            <td>energy beam</td>
+            <td class="note">${w.burn ? 'Sustained focus ignites targets. ' : ''}${esc(w.note || '')}</td>
           </tr>`;
-        });
-      } else {
-        h += `<tr>
-          <td><b>${esc(name)}</b></td>
-          <td>${esc(w.slot)}</td>
-          <td>flame stream + burn</td>
-          <td class="num">${w.dps}/s</td>
-          <td class="num">${w.dps}/s</td>
-          <td class="num">AP4</td>
-          <td>fire</td>
-          <td class="note">${w.ec ? "Stratagem: +25% from Enhanced Combustion. " : "Not boosted by ship modules. "}~${w.fuel_s} s of spray per canister. Burn: 100/s for 3 s, AP4, Main only.</td>
-        </tr>`;
+        } else {
+          h += `<tr>
+            <td><b>${esc(name)}</b></td>
+            <td>${esc(w.slot)}</td>
+            <td>flame stream + burn</td>
+            <td class="num">${w.dps}/s</td>
+            <td class="num">${w.dps}/s</td>
+            <td class="num">AP4</td>
+            <td>fire stream</td>
+            <td class="note">${w.ec ? "Stratagem: +25% from Enhanced Combustion. " : "Not boosted by ship modules. "}~${w.fuel_s} s of spray per canister. Burn: 100/s for 3 s, AP4, Main only.</td>
+          </tr>`;
+        }
+      }
+      table.innerHTML = h + "</tbody>";
+      if (countElem) {
+        countElem.textContent = `${totalCount} weapons / stratagems shown`;
       }
     }
-    table.innerHTML = h + "</tbody>";
+
+    if (catFilter) catFilter.addEventListener("change", update);
+    if (searchFilter) searchFilter.addEventListener("input", update);
+    update();
   }
 
   // Render Enemy Parts Catalog

@@ -170,6 +170,24 @@
   <section id="weapons" role="tabpanel" hidden>
     <h2>Weapon inputs & mechanics</h2>
     <p class="lede">Every weapon and stratagem component has individual damage, durable scaling, and penetration tiers. Launchers deal impact kinetic damage followed by explosive detonation, each checked against armour independently.</p>
+    <div class="controls">
+      <label for="w-cat-filter">Category
+        <select id="w-cat-filter">
+          <option value="">All Categories</option>
+          <option value="Primary">Primary Weapons</option>
+          <option value="Secondary">Secondary Weapons (Sidearms)</option>
+          <option value="Grenade">Grenades</option>
+          <option value="Support">Support Weapons</option>
+          <option value="Eagle Stratagem">Eagle Stratagems</option>
+          <option value="Orbital Strike">Orbital Strikes</option>
+          <option value="Sentry & Emplacement">Sentries & Emplacements</option>
+        </select>
+      </label>
+      <label for="w-search-filter">Search Weapon / Stratagem
+        <input type="search" id="w-search-filter" placeholder="e.g. Eruptor, Laser, 500kg, Mortar">
+      </label>
+      <span class="count" id="w-count"></span>
+    </div>
     <div class="tbl"><table id="wtable"></table></div>
   </section>
 
