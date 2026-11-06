@@ -53,16 +53,16 @@ epic-hawking/
    git add .
    git commit -m "Initial release of Helldivers 2 Kill Math Calculator"
    git branch -M main
-   git remote add origin https://github.com/<YOUR-USERNAME>/helldivers-kill-math.git
+   git remote add origin https://github.com/silentman04/managed-democracy.git
    git push -u origin main
    ```
 3. **Enable GitHub Pages:**
-   * Go to your repository on GitHub.
+   * Go to your repository on GitHub: [github.com/silentman04/managed-democracy](https://github.com/silentman04/managed-democracy)
    * Click **Settings** → **Pages**.
    * Under **Build and deployment** > **Source**, select **Deploy from a branch**.
    * Choose `main` branch and `/ (root)` folder, then click **Save**.
 4. Your calculator will be live at:
-   `https://<YOUR-USERNAME>.github.io/helldivers-kill-math/`
+   `https://silentman04.github.io/managed-democracy/`
 
 ---
 
