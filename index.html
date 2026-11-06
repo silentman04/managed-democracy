@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Helldivers 2 Kill Math · Galactic Damage Calculator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand-title">
+      <h1>Helldivers 2 <span>Kill Math</span></h1>
+      <div class="subtitle">Galactic Damage Calculator & Tactical Ballistics Matrix</div>
+    </div>
+    <div class="meta-wrap">
+      <div class="meta">Stats from helldivers.wiki.gg · Game Patch 1.007.1xx<br>Ship modules unlocked · Point-blank (no falloff) · Dynamic JS Engine</div>
+      <button class="theme-toggle-btn" id="theme-toggle">🌙 Dark Mode</button>
+    </div>
+  </header>
+
+  <nav role="tablist" aria-label="Sections">
+    <button role="tab" data-tab="guide" aria-selected="true">How damage works</button>
+    <button role="tab" data-tab="matrix">Kill matrix</button>
+    <button role="tab" data-tab="Terminid">Terminid breakdown</button>
+    <button role="tab" data-tab="Automaton">Automaton breakdown</button>
+    <button role="tab" data-tab="Illuminate">Illuminate breakdown</button>
+    <button role="tab" data-tab="weapons">Weapons</button>
+    <button role="tab" data-tab="enemies">Enemy parts</button>
+    <button role="tab" data-tab="sandbox">What-If Sandbox</button>
+    <button role="tab" data-tab="notes">Assumptions & sources</button>
+  </nav>
+
+  <!-- ========================================== -->
+  <!-- TAB 1: HOW DAMAGE WORKS                    -->
+  <!-- ========================================== -->
+  <section id="guide" role="tabpanel">
+    <h2>Three numbers decide every hit</h2>
+    <p class="lede">Each shot runs through the same three checks in order: can it get through the armour (AP vs AV), how much of the damage "sticks" to that body part (raw vs durable damage), and where the damage ends up (the part's own health, the enemy's Main health, or both).</p>
+
+    <div class="grid2">
+      <div>
+        <h3>1 · Armour penetration (AP) vs armour value (AV)</h3>
+        <p>Every weapon has an AP level from 0 to 10. Every enemy body part has an AV from 0 to 10. The game compares the two numbers on each hit:</p>
+        <div class="tbl">
+          <table>
+            <thead><tr><th>Comparison</th><th>Result</th><th>Hitmarker</th></tr></thead>
+            <tbody>
+              <tr><td>AP &gt; AV</td><td>100% damage</td><td><span class="chip c-full">red</span></td></tr>
+              <tr><td>AP = AV</td><td>65% damage</td><td><span class="chip c-white">white</span></td></tr>
+              <tr><td>AP &lt; AV</td><td>0 damage, the round ricochets</td><td><span class="chip c-bounce">blue / ricochet</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="analogy">
+          <b>Analogy</b>
+          Think of AV as a door's lock grade and AP as the grade of your key. A key one grade higher opens the door fully. A key of the same grade jams halfway, so only about two-thirds gets through. A lower-grade key doesn't turn at all, no matter how hard you push. That is why a 2,000-damage Quasar shot does full damage to a Charger's head (AP6 vs AV4) while 45 Coyote bullets do nothing to the same head (AP3 vs AV4).
+        </div>
+        <p class="note">Angle matters too: each projectile has separate AP values for straight, slight, large and extreme angles. Most weapons keep their AP until the extreme angle (81–90°), where it usually drops to 0. Explosions lose 1 AP in their outer radius.</p>
+      </div>
+
+      <div>
+        <h3>AP / AV level names</h3>
+        <div class="tbl">
+          <table class="aptable">
+            <thead><tr><th>Level</th><th>Name</th><th>Examples in this sheet</th></tr></thead>
+            <tbody>
+              <tr><td>0</td><td>Unarmoured</td><td>Charger butt, Bile Titan sacs, Impaler leg flesh, Votary shield</td></tr>
+              <tr><td>1</td><td>Very light</td><td>Hulk heatsink, Devastator head, Vox Engine vents, Stalker head</td></tr>
+              <tr><td>2</td><td>Light</td><td>Scorcher bolt; Bile Titan belly, Charger leg flesh, Brood Commander head</td></tr>
+              <tr><td>3</td><td>Medium</td><td>Coyote, Adjudicator, Purifier, Scorcher blast, Senator; Scout Strider legs, Factory Strider belly</td></tr>
+              <tr><td>4</td><td>Heavy</td><td>All flamethrowers + fire DoT, AMR, Autocannon; most Charger / Titan / Hulk armour</td></tr>
+              <tr><td>5</td><td>Anti-tank I (Tank I)</td><td>RR HE shell, Railgun safe mode; Factory Strider plates, Vox Engine hull, Hive Lord plates</td></tr>
+              <tr><td>6</td><td>Anti-tank II</td><td>EAT-17, Quasar, Commando, RR HEAT, Ultimatum, Leveller; Hive Lord jaws</td></tr>
+              <tr><td>7</td><td>Anti-tank III</td><td>Spear, Thermite grenade, Railgun unsafe (90%)</td></tr>
+              <tr><td>8–10</td><td>Anti-tank IV–VI</td><td>Orbitals (Precision Strike, Railcannon), Hellbomb; Hive Lord crown is AV10</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">In-game tags: AP2 = "Light armour penetrating", AP3 = "Medium", AP4 = "Heavy", AP5+ = "Anti-tank".</p>
+      </div>
+    </div>
+
+    <h3>2 · Raw damage vs durable damage</h3>
+    <p>Every weapon lists two numbers: <b>standard ("raw") damage</b> and <b>durable damage</b>. Every body part has a <b>durability %</b> between 0 and 100. The part takes a blend of the two, weighted by its durability:</p>
+    <div class="formula">damage to part = raw × (1 − durable%) + durable_dmg × durable%   → round down</div>
+    <div class="analogy">
+      <b>Analogy</b>
+      A knife and a sledgehammer. Against a curtain (0% durable) the knife is devastating. Against a thick rubber tyre (100% durable) the knife barely marks it and only the hammer's weight counts. Rifle bullets are knives: the Coyote does 75 raw but only 10 durable. Rockets are hammers: an EAT-17 does 2,000 raw and 2,000 durable, so durability doesn't bother it at all.
+    </div>
+    <p><b>Worked example:</b> Coyote into a Charger's butt (AV0, 80% durable):<br>
+    <span class="mono">75 × 0.20 + 10 × 0.80 = 15 + 8 = 23 per bullet</span>. AP3 &gt; AV0, so all 23 lands. The butt has 950 HP, so it takes <b>42 bullets</b> to pop it. Compare that with the bullet's 75 on paper: the durability cut it by about 70%.</p>
+    <p>Explosions ignore durability. They always deal their durable number (which for every explosion in this sheet equals raw), but each part has an <b>ExDR</b> (explosive damage resistance) that cuts them: a part with 100% ExDR takes no blast damage at all.</p>
+
+    <h3>3 · Where the damage goes: parts, Main health and fatal parts</h3>
+    <p>Enemies are built from parts. Each part has its own HP and passes a share of every hit (<b>% to Main</b>) into the enemy's <b>Main</b> health pool. The enemy dies when either Main reaches 0, or a <b>fatal</b> part (head, heatsink, butt, belly…) is destroyed.</p>
+    <ul>
+      <li>A non-fatal armour plate can only pass its own HP × % into Main. Once it breaks, it's gone, so shooting a Charger's leg armour strips the armour but won't kill it by itself.</li>
+      <li>Some parts have no HP of their own ("Main" in the tables). They feed straight into Main, sometimes at more than 100%: a Charger's inner flesh passes <b>300%</b>, which is why breaking its side armour and shooting the flesh is so effective.</li>
+      <li><b>Constitution</b> is a bleed-out buffer. A Charger whose butt is destroyed goes down and bleeds out over a few seconds rather than dying instantly.</li>
+    </ul>
+    <div class="analogy">
+      <b>Consultant lens</b>
+      It's a gating analysis. AP vs AV is the go / no-go gate (can this option address the problem at all?). Durability is the conversion rate (how much of the input becomes output). Fatal parts and % to Main are the critical path (which workstream actually ends the project). The kill matrix is the recommendation slide; the breakdown tabs are the appendix that backs it.
+    </div>
+
+    <h3>4 · Fire: the special case</h3>
+    <ul>
+      <li>Flame weapons fire a stream of particles (2 damage each, 3 for the Cremator) at <b>AP4</b>. Listed DPS: 150/s for the Flamethrower, Torcher, Crisper and Hot Dog; 225/s for the Cremator.</li>
+      <li>Burning adds <b>100 fire damage per second</b> for 3 s, also AP4, applied only to <b>Main</b>. Against AV4 Main (Chargers, Titans, Hulks) that burn does 65%; against AV5 Main (Vox Engine, Hive Lord) it does nothing.</li>
+      <li>Fire scales with enemy size: Charger / Hulk take 1.5×, Bile Titan / Impaler / Dragonroach 1.7×.</li>
+      <li>The <b>Enhanced Combustion</b> ship module adds +25% fire damage to <i>stratagem</i> fire: the Flamethrower, Cremator, Hot Dog and EAT-700 napalm. It doesn't boost the Torcher, Crisper or Coyote.</li>
+    </ul>
+    <div class="formula">flame on part/s = DPS × size mult × (1.25 if stratagem) × AP factor&nbsp;&nbsp;·&nbsp;&nbsp;burn on Main/s = 100 × size mult × (1.25 if stratagem) × AP factor vs Main AV</div>
+    <p class="note">Flame rows in the breakdown tabs are measured in <b>seconds of continuous spray</b>, not hits.</p>
+
+    <h3>How to read the breakdown tabs</h3>
+    <ol class="steps">
+      <li>Pick an enemy and a weapon from the filters.</li>
+      <li>Each row is one body part. <b>Dmg / hit</b> is after AP and durability. The <b>Math</b> column shows the full calculation.</li>
+      <li><b>To break</b> is how many hits (or seconds) destroy that part. <b>To kill</b> is how many end the enemy, and <b>Route</b> says how (fatal part destroyed, or Main drained).</li>
+      <li>"Breaks part only" means that part is an armour gate: break it, then shoot what's underneath.</li>
+    </ol>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- TAB 2: KILL MATRIX                         -->
+  <!-- ========================================== -->
+  <section id="matrix" role="tabpanel" hidden>
+    <h2>Kill matrix</h2>
+    <p class="lede">The fastest route for each weapon against each enemy, computed dynamically from the part-by-part breakdown. Numbers are hits for guns and launchers, and seconds of spray for flame weapons. The small text names the part to aim for.</p>
+    <div class="legend">
+      <span><span class="chip" style="background:var(--good-soft);color:var(--good)">1</span> one-hit kill</span>
+      <span><span class="chip c-white">—</span> can't kill this enemy alone</span>
+      <span>Parts marked "after armor broken" or "under torso armor" need the plate stripped first.</span>
+    </div>
+
+    <h3>Terminids</h3>
+    <div class="tbl"><table class="matrix" id="mx-Terminid"></table></div>
+
+    <h3>Automatons</h3>
+    <div class="tbl"><table class="matrix" id="mx-Automaton"></table></div>
+
+    <h3>Illuminates</h3>
+    <div class="tbl"><table class="matrix" id="mx-Illuminate"></table></div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- TAB 3: TERMINID BREAKDOWN                  -->
+  <!-- ========================================== -->
+  <section id="Terminid" role="tabpanel" hidden></section>
+
+  <!-- ========================================== -->
+  <!-- TAB 4: AUTOMATON BREAKDOWN                 -->
+  <!-- ========================================== -->
+  <section id="Automaton" role="tabpanel" hidden></section>
+
+  <!-- ========================================== -->
+  <!-- TAB 5: ILLUMINATE BREAKDOWN                -->
+  <!-- ========================================== -->
+  <section id="Illuminate" role="tabpanel" hidden></section>
+
+  <!-- ========================================== -->
+  <!-- TAB 6: WEAPONS CATALOG                     -->
+  <!-- ========================================== -->
+  <section id="weapons" role="tabpanel" hidden>
+    <h2>Weapon inputs & mechanics</h2>
+    <p class="lede">Every weapon and stratagem component has individual damage, durable scaling, and penetration tiers. Launchers deal impact kinetic damage followed by explosive detonation, each checked against armour independently.</p>
+    <div class="tbl"><table id="wtable"></table></div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- TAB 7: ENEMY PARTS CATALOG                 -->
+  <!-- ========================================== -->
+  <section id="enemies" role="tabpanel" hidden>
+    <h2>Enemy part anatomy & health pools</h2>
+    <div class="controls">
+      <label for="enemyPick">Enemy
+        <select id="enemyPick"></select>
+      </label>
+    </div>
+    <div id="enemyInfo" class="note"></div>
+    <div class="tbl"><table id="etable"></table></div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- TAB 8: WHAT-IF SANDBOX                     -->
+  <!-- ========================================== -->
+  <section id="sandbox" role="tabpanel" hidden>
+    <h2>What-If Tuning Sandbox</h2>
+    <p class="lede">Test weapon balance ideas in real time. Adjust raw damage, durable scaling, and armor penetration sliders to see instant TTK and shots-to-kill against any enemy part across all three factions.</p>
+    <div id="sandbox-container"></div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- TAB 9: ASSUMPTIONS & SOURCES               -->
+  <!-- ========================================== -->
+  <section id="notes" role="tabpanel" hidden>
+    <h2>Assumptions and limits</h2>
+    <ul>
+      <li><b>Ship modules:</b> all unlocked. The only one that directly alters weapon damage values is <i>Enhanced Combustion</i> (+25% fire damage from stratagems). Others affect reload speed, call-in timers, and cooldowns.</li>
+      <li><b>Range:</b> calculated at point-blank range. Ballistic bullets and plasma bolts suffer damage and AP falloff over long distances; guided missiles (Spear, Commando) do not.</li>
+      <li><b>Explosions:</b> counted on the primary target part. Real in-game explosions also splash onto adjacent anatomical parts and the Main health pool, meaning area weapons like the Leveller, Ultimatum, and Recoilless HE frequently achieve faster kills than shown in single-part math.</li>
+      <li><b>Transfer cap:</b> non-fatal armor plates pass at most their own `HP × (% to Main)` into the Main health pool before breaking off.</li>
+      <li><b>Fire size scaling:</b> direct fire damage scales with target body volume (Hulk/Charger 1.5×, Titan/Impaler 1.7×). Non-stratagem fire weapons (Torcher, Crisper) do not receive the Enhanced Combustion 25% bonus.</li>
+      <li><b>Purifier:</b> shown as both full charge (1s hold) with AP3 bolt + 300 blast, and quick trigger tap.</li>
+      <li><b>Coyote fire:</b> AR-2 Coyote is shown both standard and with an assumed 3-second fire burn on Main health.</li>
+      <li><b>Illuminates (The Squ'ith):</b> energy shields possess AV0 and absorb kinetic energy up to their barrier threshold before breaking and exposing physical anatomy underneath.</li>
+      <li><b>Patches:</b> Arrowhead frequently adjusts balancing. Stats reflect values verified on helldivers.wiki.gg as of patch 1.007.1xx.</li>
+    </ul>
+
+    <h3>Sources</h3>
+    <ul class="note">
+      <li>helldivers.wiki.gg — Damage Mechanics (AP/AV comparisons, durable formulas, armor gating)</li>
+      <li>helldivers.wiki.gg — Damage Comparison Tables (weapon damage, durable ratios, explosion radii)</li>
+      <li>helldivers.wiki.gg — Enemy Anatomy Tables: Bile Titan, Charger, Charger Behemoth, Impaler, Hive Lord, Dragonroach, Factory Strider, Hulk Bruiser, War Strider, Vox Engine, Illuminates</li>
+      <li>helldivers.wiki.gg — Status Effects (Burning, Burning Heavy, Armor strips)</li>
+    </ul>
+  </section>
+</div>
+
+<!-- Scripts -->
+<script src="data/weapons.js"></script>
+<script src="data/enemies.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/sandbox.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
